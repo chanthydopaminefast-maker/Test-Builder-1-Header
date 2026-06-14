@@ -1,0 +1,8 @@
+{
+  "name": "Test Builder 1 Header",
+  "description": "A high-performance neural-powered reading and vocabulary test generation system for advanced educators.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": []
+}
