@@ -1352,6 +1352,93 @@ export const exportToWord = (
     });
   }
 
+  // --- INSTRUCTION HEADER AND TEXT COLOR RESET FOR MS WORD ---
+  // Ensure that all instruction headers, part headers, tables of class .header-row,
+  // h2, h3, or anything matching the instruction styling has perfectly readable dark text,
+  // especially correcting any child elements (like <span>) that might have carried over "color: white"
+  // from the dark-theme browser style context into the light-page Word export.
+  const headerSelectors = [
+    ".header-row",
+    ".part-header",
+    ".instruction-header",
+    ".instruction-design",
+    ".instruction-box",
+    ".export-instruction",
+    "h2",
+    "h3",
+    "td[colspan]"
+  ];
+
+  tempDiv.querySelectorAll(headerSelectors.join(", ")).forEach((el) => {
+    const heading = el as HTMLElement;
+    if (!heading.style) return;
+
+    // Determine parent's target text color
+    let headingBg = heading.style.backgroundColor?.toLowerCase() || "";
+    let currentTextColor = heading.style.color?.toLowerCase() || "";
+
+    // If instruction background is disabled, force transparent background and solid black text
+    if (!isInstructionBackgroundEnabled) {
+      heading.style.backgroundColor = "transparent";
+      heading.style.setProperty("mso-shading", "transparent");
+      heading.style.color = "#000000";
+      currentTextColor = "#000000";
+    } else {
+      // Background is enabled. Let's see if we have mapped text color for the style,
+      // or if it's currently white/light but the background is transparent/light.
+      const isBgTransparentOrLight =
+        !headingBg ||
+        headingBg === "transparent" ||
+        headingBg === "#ffffff" ||
+        headingBg === "rgb(255, 255, 255)" ||
+        headingBg === "#fef9c3" || // Soft Highlight
+        headingBg === "#facc15" || // Brutalist Pop
+        headingBg === "#fde047" || // Brutalist Yellow
+        headingBg === "#ecfdf5";   // Neon Emerald
+
+      if (isBgTransparentOrLight) {
+        // For light backgrounds, text MUST be black or a very dark accent (never white or light)
+        if (
+          currentTextColor === "white" ||
+          currentTextColor === "#ffffff" ||
+          currentTextColor === "rgb(255, 255, 255)" ||
+          currentTextColor === "#cbd5e1" ||
+          currentTextColor === "#e2e8f0" ||
+          !currentTextColor
+        ) {
+          heading.style.color = "#000000";
+          currentTextColor = "#000000";
+        }
+      }
+    }
+
+    // Now, clean up all child spans or formatting elements inside this heading.
+    // Standardize their color to inherit from the parent heading, preventing "double-instruction/white-on-yellow" text.
+    heading.querySelectorAll("span, p, div, b, strong, i, em").forEach((child) => {
+      const childEl = child as HTMLElement;
+      if (childEl.style) {
+        const childColor = childEl.style.color?.toLowerCase();
+        // If the child text is styled white or light, OR we are forcing transparent/black text,
+        // force the child text to inherit the parent's color.
+        if (
+          childColor === "white" ||
+          childColor === "#ffffff" ||
+          childColor === "rgb(255, 255, 255)" ||
+          childColor === "#cbd5e1" ||
+          childColor === "#e2e8f0" ||
+          currentTextColor === "#000000" ||
+          !isInstructionBackgroundEnabled
+        ) {
+          childEl.style.color = "inherit";
+          // For maximum compatibility in MS Word we can also set the color style explicitly:
+          if (currentTextColor) {
+            childEl.style.setProperty("color", currentTextColor, "important");
+          }
+        }
+      }
+    });
+  });
+
   // 4. CLEANUP: Trim leading empty spaces and problematic artifacts
   // Remove problematic empty paragraphs at the start
   const firstChild = tempDiv.firstElementChild;
